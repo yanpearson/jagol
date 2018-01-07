@@ -1,0 +1,22 @@
+{
+	"name": "jagol",
+	"version": "1.0.0",
+	"description": "Just Another Game Of Life",
+	"main": "index.js",
+	"scripts": {
+		"start": "node app.js",
+		"test": "node node_modules/jasmine/bin/jasmine.js",
+		"build": "./node_modules/.bin/webpack"
+	},
+	"author": "Yan Pearson",
+	"license": "ISC",
+	"devDependencies": {
+		"jasmine": "^2.7.0",
+		"webpack": "^3.5.5"
+	},
+	"dependencies": {
+		"connect": "^3.6.3",
+		"ramda": "^0.24.1",
+		"serve-static": "^1.12.4"
+	}
+}
