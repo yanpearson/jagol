@@ -3,8 +3,8 @@
 const R = require('ramda');
 const game = require('../lib/jagol');
 
-const DEAD_STATE = 0;
-const ALIVE_STATE = 255;
+const DEAD_STATE = false;
+const ALIVE_STATE = true;
 
 describe("Rules table", function() {
 
