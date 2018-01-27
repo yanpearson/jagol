@@ -14,145 +14,194 @@
 <body>
 	<h1>jagol</h1>
 	<canvas id="board" width="500" height="500"></canvas>
-	<div id="generation">
-		<span>Generation: 0</span>
-	</div>
-	<form id="controls">
-		<input type="button" id="start" value="Start">
-		<input type="button" id="stop" value="Stop">
-	</form>
+	<div id="status"></div>
+	<div id="game-controller"></div>
 	<script src="jagol.js"></script>
 	<script src="patterns.js"></script>
 	<script>
-		const initializeGenerationView = id => {
-			if (!id) return;
-			const view = document.getElementById(id);
-			if (!view) return;
-			const genEl = view.querySelector('span');
-			if (!genEl) return;
-			const displayGeneration = board => {
-				genEl.innerText = `Generation: ${board.generation}`;
-				return board;
-			};
-			return { displayGeneration };
-		};
-
-		const initializeBoardView = (id, width, height, cellSize) => {
-			width = width || 50;
-			height = height || 50;
-			cellSize = cellSize || 10;
-			if (!id) return;
-			const view = document.getElementById(id);
-			if (!view) return;
-			if (!view.getContext) return;
-			const ctx = view.getContext('2d');
-			if (!ctx) return;
-
-			const drawBoard = (ctx, width, height, cellSize) => {
-				ctx.clearRect(0, 0, width * cellSize, height * cellSize);
-				for(let i = 0; i <= width; i++) {
-					ctx.beginPath();
-					ctx.moveTo(i * cellSize, 0);
-					ctx.lineTo(i * cellSize, height * cellSize);
-					ctx.stroke();
-				}
-				for(let j = 0; j <= height; j++) {
-					ctx.beginPath();
-					ctx.moveTo(0, j * cellSize);
-					ctx.lineTo(width * cellSize, j * cellSize);
-					ctx.stroke();
-				}
-			}
-
-			const drawCell = (ctx, x, y, cellSize) => {
-				const padding = 2;
-				const x1 = x * cellSize + padding;
-				const y1 = y * cellSize + padding;
-				const size = cellSize - (2 * padding);
-
-				ctx.fillRect(x1, y1, size, size);
-			}
-
-			const renderBoard = board => {
-				drawBoard(ctx, width, height, cellSize);
-				board.population.forEach(cell => {
-					drawCell(ctx, cell.x, cell.y, cellSize);
-				});
-				return board;
-			};
-
-			return { renderBoard };
-		};
-
-		const initializeControlsView = (id, onStart, onStop) => {
-			if (!id) return;
-			if (!onStart || !typeof onStart === 'function') return;
-			if (!onStop || !typeof onStop === 'function') return;
-			if (!id) return;
-			const view = document.getElementById(id);
-			if (!view) return;
-			const startEl = view.querySelector('#start');
-			if (!startEl) return;
-			const stopEl = view.querySelector('#stop');
-			if (!stopEl) return;
-			const start = () => {
-				startEl.disabled = true;
-				stopEl.disabled = false;
-				onStart();
-			};
-			const stop = () => {
-				startEl.disabled = false;
-				stopEl.disabled = true;
-				onStop();
-			};
-			startEl.disabled = false;
-			stopEl.disabled = true;
-			startEl.addEventListener('click', start);
-			stopEl.addEventListener('click', stop);
-			return { start, stop };
-		};
-
-		const boardView = initializeBoardView('board');
-		const genView = initializeGenerationView('generation');
-
+		// Game
 		const oscillator = patterns.oscillator(47, 47);
 		const glider = patterns.glider(0, 10);
 		const gosperGliderGun = patterns.gosperGliderGun(0, 0);
 		const seed = [].concat(oscillator).concat(glider).concat(gosperGliderGun);
-
+		const gameBoard = jagol.board(50, 50, seed);
 		const rulesTable = jagol.createRulesTable();
 		const doNextGen = jagol.play(rulesTable);
 
-		const renderNextGen = seed => {
-			const _renderNextGen = board => boardView.renderBoard(genView.displayGeneration(doNextGen(board)));
-			return () => {
-				seed = _renderNextGen(seed);
-			};
-		};
-
-		const game = seed => {
-			const board = jagol.board(50, 50, seed);
-
-			boardView.renderBoard(board);
-
-			const tick = renderNextGen(board);
+		const loop = (() => {
 			let intervalId;
 
-			const play = () => {
-				intervalId = setInterval(function() {
-					tick();
-				}, 10);
+			const start = () => {
+				store.dispatch(startGame());
+				intervalId = setInterval(() => {
+					store.dispatch(renderBoard());
+					store.dispatch(renderStatus());
+				}, 0);
 			};
 
-			const abort = () => {
+			const stop = () => {
 				clearInterval(intervalId);
+				store.dispatch(stopGame());
 			};
 
-			return { play, abort };
+			return { start, stop };
+		})();
+
+		// Actions
+		const startGame = () => ({ id: 'startGame'  });
+		const stopGame = () => ({ id: 'stopGame' });
+		const renderStatus = () => ({ id: 'renderStatus' });
+		const renderBoard = () => ({ id: 'renderBoard' });
+
+		// Reducers
+		const gameController = (state = { isStarted: false }, action) => {
+			switch(action.id) {
+				case 'startGame':
+					return {
+						isStarted: true
+					};
+				case 'stopGame':
+					return {
+						isStarted: false
+					};
+				default:
+					return state;
+			}
 		};
 
-		const myGame = game(seed);
-		const controls = initializeControlsView('controls', myGame.play, myGame.abort);
+		const status = (state = { generation: 0 }, action) => {
+			switch(action.id) {
+				case 'renderStatus':
+					return { generation: ++state.generation };
+				default:
+					return state;
+			}
+		};
+
+		const board = (state = { board: gameBoard }, action) => {
+			switch(action.id) {
+				case 'renderBoard':
+					const nextGen = doNextGen(state.board);
+					return { board: nextGen };
+				default:
+					return state;
+			}
+		};
+
+		const game = (state = { }, action) => ({
+			gameController: gameController(state.gameController, action),
+			status: status(state.status, action),
+			board: board(state.board, action)
+		});
+
+		// Renderering
+		const renderGame = (state, originator) => {
+
+			// Game Controller
+			const gameControllerView = (startEnabled, stopEnabled) => `
+<button id="start" ${startEnabled ? '' : 'disabled="disabled"'}>Start</button>
+<button id="stop" ${stopEnabled ? '' : 'disabled="disabled"'}>Stop</button>`;
+
+			const renderGameController = state => {
+				const view = gameControllerView(!state.isStarted, state.isStarted);
+				const gc = document.getElementById('game-controller');
+
+				gc.innerHTML = view;
+
+				const start = gc.querySelector('#start');
+				start.addEventListener('click', loop.start);
+
+				const stop = gc.querySelector('#stop');
+				stop.addEventListener('click', loop.stop);
+			};
+
+			// Status
+			const statusView = generation => `<span id="generation">Generation: ${generation}</span>`;
+
+			const renderStatus = state => {
+				const view = statusView(state.generation);
+				const gc = document.getElementById('status');
+
+				gc.innerHTML = view;
+			};
+
+			// Board
+			const renderBoard = state => {
+				const drawBoard = (ctx, width, height, cellSize) => {
+					ctx.clearRect(0, 0, width * cellSize, height * cellSize);
+					for(let i = 0; i <= width; i++) {
+						ctx.beginPath();
+						ctx.moveTo(i * cellSize, 0);
+						ctx.lineTo(i * cellSize, height * cellSize);
+						ctx.stroke();
+					}
+					for(let j = 0; j <= height; j++) {
+						ctx.beginPath();
+						ctx.moveTo(0, j * cellSize);
+						ctx.lineTo(width * cellSize, j * cellSize);
+						ctx.stroke();
+					}
+				}
+
+				const drawCell = (ctx, x, y, cellSize) => {
+					const padding = 2;
+					const x1 = x * cellSize + padding;
+					const y1 = y * cellSize + padding;
+					const size = cellSize - (2 * padding);
+
+					ctx.fillRect(x1, y1, size, size);
+				}
+
+				const view = document.getElementById('board');
+				const ctx = view.getContext('2d');
+
+				return ((ctx, population, width, height, cellSize) => {
+					drawBoard(ctx, width, height, cellSize);
+					population.forEach(cell => {
+						drawCell(ctx, cell.x, cell.y, cellSize);
+					});
+					return population;
+				})(ctx, state.board.population, state.board.width, state.board.height, 10);
+			};
+
+			// -- WORKAROUND --
+			// Not the best solution...
+			// But we don't want to render everything each times.
+			switch(originator) {
+				case 'startGame':
+				case 'stopGame':
+					renderGameController(state.gameController);
+					break;
+				case 'renderStatus':
+					renderStatus(state.status);
+					break;
+				case 'renderBoard':
+					renderBoard(state.board);
+					break;
+				default:
+					renderGameController(state.gameController);
+					renderStatus(state.status);
+					renderBoard(state.board);
+					break;
+			}
+		};
+
+		// Store
+		const createStore = (reducer, onDispatch, initialState) => {
+			let state = initialState || { };
+
+			const dispatch = action => {
+				state = reducer(state, action);
+				onDispatch(state, action.id);
+			};
+
+			return { dispatch };
+		};
+
+		const store = createStore(game, renderGame);
+
+		// Initial rendering
+		store.dispatch({ id: 'INITIAL_RENDERING' });
 	</script>
 </body>
 </html>
