@@ -30,12 +30,28 @@
 
 		const loop = (() => {
 			let intervalId;
+			let renderAt;
+			let renderingSpeed = 0;
+			let renderingSpeedResults = [];
 
 			const start = () => {
 				store.dispatch(startGame());
 				intervalId = setInterval(() => {
+					const now = window.performance.now();
+					const elapsedTime = renderAt ? now - renderAt : 0;
+					const renderingSpeedResult = (1000 / elapsedTime) | 0;
+
+					renderingSpeedResults = renderingSpeedResults.concat(renderingSpeedResult);
+
+					if (renderingSpeedResults.length === 100) {
+						renderingSpeed = (renderingSpeedResults.reduce((acc, current) => acc = acc + current) / 100) | 0;
+						renderingSpeedResults = [];
+					}
+
 					store.dispatch(renderBoard());
-					store.dispatch(renderStatus());
+					store.dispatch(renderStatus(renderingSpeed));
+
+					renderAt = now;
 				}, 0);
 			};
 
@@ -50,7 +66,7 @@
 		// Actions
 		const startGame = () => ({ id: 'startGame'  });
 		const stopGame = () => ({ id: 'stopGame' });
-		const renderStatus = () => ({ id: 'renderStatus' });
+		const renderStatus = renderingSpeed => ({ id: 'renderStatus', renderingSpeed });
 		const renderBoard = () => ({ id: 'renderBoard' });
 
 		// Reducers
@@ -69,10 +85,10 @@
 			}
 		};
 
-		const status = (state = { generation: 0 }, action) => {
+		const status = (state = { generation: 0, renderingSpeed: 0 }, action) => {
 			switch(action.id) {
 				case 'renderStatus':
-					return { generation: ++state.generation };
+					return { generation: ++state.generation, renderingSpeed: action.renderingSpeed };
 				default:
 					return state;
 			}
@@ -116,10 +132,12 @@
 			};
 
 			// Status
-			const statusView = generation => `<span id="generation">Generation: ${generation}</span>`;
+			const statusView = (generation, renderingSpeed) => `
+<span>Generation: ${generation}</span>
+<span>Rendering Speed: ${renderingSpeed} generations/seconds</span>`;
 
 			const renderStatus = state => {
-				const view = statusView(state.generation);
+				const view = statusView(state.generation, state.renderingSpeed);
 				const gc = document.getElementById('status');
 
 				gc.innerHTML = view;
