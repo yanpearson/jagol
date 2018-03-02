@@ -18,6 +18,7 @@
 	<div id="game-controller"></div>
 	<script src="jagol.js"></script>
 	<script src="patterns.js"></script>
+	<script src="immutable.js"></script>
 	<script>
 		// Game
 		const oscillator = patterns.oscillator(47, 47);
@@ -27,58 +28,123 @@
 		const gameBoard = jagol.board(50, 50, seed);
 		const rulesTable = jagol.createRulesTable();
 		const doNextGen = jagol.play(rulesTable);
+		const historicityLevel = 30;
 
 		const loop = (() => {
 			let intervalId;
-			let renderAt;
-			let renderingSpeed = 0;
-			let renderingSpeedResults = [];
+			let currentGeneration = { board: gameBoard, renderingSpeed: 0 };
+			let history = new immutable.Stack();
 
-			const start = () => {
-				store.dispatch(startGame());
+			const hasHistory = history => history.size > 0;
+
+			const previous = () => {
+				const element = history.peek();
+				const list = history.pop();
+				const board = element.board;
+
+				store.dispatch(renderBoard(board));
+
+				currentGeneration = { board, renderingSpeed: 0 };
+				history = list;
+
+				store.dispatch(previousGeneration(hasHistory(history)));
+				store.dispatch(renderStatus(board.generation, 0));
+			};
+
+			const play = () => {
+				let lastRenderAt = window.performance.now();
+
+				store.dispatch(playGame(hasHistory(history)));
+
 				intervalId = setInterval(() => {
-					const now = window.performance.now();
-					const elapsedTime = renderAt ? now - renderAt : 0;
-					const renderingSpeedResult = (1000 / elapsedTime) | 0;
-
-					renderingSpeedResults = renderingSpeedResults.concat(renderingSpeedResult);
-
-					if (renderingSpeedResults.length === 100) {
-						renderingSpeed = (renderingSpeedResults.reduce((acc, current) => acc = acc + current) / 100) | 0;
-						renderingSpeedResults = [];
+					if (currentGeneration) {
+						if (history.size > historicityLevel) {
+							history = history.butLast();
+						}
+						history = history.push(currentGeneration);
 					}
 
-					store.dispatch(renderBoard());
-					store.dispatch(renderStatus(renderingSpeed));
+					const board = doNextGen(currentGeneration.board);
+					store.dispatch(renderBoard(board));
 
-					renderAt = now;
+					const now = window.performance.now();
+					const elapsedTime = now - lastRenderAt;
+					const renderingSpeed = 1000 / elapsedTime;
+
+					lastRenderAt = now;
+					currentGeneration = { board, renderingSpeed };
+
+					const allGenerations = history.push(currentGeneration);
+					const totalTime = allGenerations.reduce((acc, current) => acc + current.renderingSpeed, 0);
+					const averageRenderingSpeed = (totalTime / historicityLevel) | 0;
+
+					store.dispatch(renderStatus(board.generation, averageRenderingSpeed));
 				}, 0);
 			};
 
-			const stop = () => {
+			const pause = () => {
 				clearInterval(intervalId);
-				store.dispatch(stopGame());
+				store.dispatch(pauseGame(hasHistory(history)));
 			};
 
-			return { start, stop };
+			const next = () => {
+				if (currentGeneration) {
+					if (history.size > historicityLevel) {
+						history = history.butLast();
+					}
+					history = history.push(currentGeneration);
+				}
+
+				const board = doNextGen(currentGeneration.board);
+				store.dispatch(renderBoard(board));
+
+				currentGeneration = { board, averageRenderingSpeed: 0 };
+
+				store.dispatch(nextGeneration(hasHistory(history)));
+				store.dispatch(renderStatus(board.generation, 0));
+			};
+
+			return { previous, play, pause, next };
 		})();
 
 		// Actions
-		const startGame = () => ({ id: 'startGame'  });
-		const stopGame = () => ({ id: 'stopGame' });
-		const renderStatus = renderingSpeed => ({ id: 'renderStatus', renderingSpeed });
-		const renderBoard = () => ({ id: 'renderBoard' });
+		const previousGeneration = canPrevious => ({ id: 'previousGeneration', canPrevious });
+		const playGame = canPrevious => ({ id: 'playGame', canPrevious });
+		const pauseGame = canPrevious => ({ id: 'pauseGame', canPrevious });
+		const nextGeneration = canPrevious => ({ id: 'nextGeneration', canPrevious });
+		const renderStatus = (generation, renderingSpeed) => ({ id: 'renderStatus', generation, renderingSpeed });
+		const renderBoard = board => ({ id: 'renderBoard', board });
 
 		// Reducers
-		const gameController = (state = { isStarted: false }, action) => {
+		const gameController = (state = { canPrevious: false, canPlay: true, canPause: false, canNext: true }, action) => {
 			switch(action.id) {
-				case 'startGame':
+				case 'previousGeneration':
 					return {
-						isStarted: true
+						canPrevious: action.canPrevious,
+						canPlay: true,
+						canStop: false,
+						canNext: true,
 					};
-				case 'stopGame':
+				case 'playGame':
 					return {
-						isStarted: false
+						canPrevious: false,
+						canPlay: false,
+						canPause: true,
+						canNext: false,
+					};
+				case 'pauseGame':
+					return {
+						canPrevious: action.canPrevious,
+						canPlay: true,
+						canPause: false,
+						canNext: true,
+					};
+				case 'nextGeneration':
+					return {
+						canPrevious: action.canPrevious,
+						canPlay: true,
+						canStop: false,
+						canNext: true,
 					};
 				default:
 					return state;
@@ -88,17 +154,22 @@
 		const status = (state = { generation: 0, renderingSpeed: 0 }, action) => {
 			switch(action.id) {
 				case 'renderStatus':
-					return { generation: ++state.generation, renderingSpeed: action.renderingSpeed };
+					return { generation: action.generation, renderingSpeed: action.renderingSpeed };
 				default:
 					return state;
 			}
 		};
 
-		const board = (state = { board: gameBoard }, action) => {
+		const toBoardState = board => ({
+			width: board.width,
+			height: board.height,
+			population: board.population
+		});
+
+		const board = (state = toBoardState(gameBoard), action) => {
 			switch(action.id) {
 				case 'renderBoard':
-					const nextGen = doNextGen(state.board);
-					return { board: nextGen };
+					return toBoardState(action.board);
 				default:
 					return state;
 			}
@@ -114,21 +185,29 @@
 		const renderGame = (state, originator) => {
 
 			// Game Controller
-			const gameControllerView = (startEnabled, stopEnabled) => `
-<button id="start" ${startEnabled ? '' : 'disabled="disabled"'}>Start</button>
-<button id="stop" ${stopEnabled ? '' : 'disabled="disabled"'}>Stop</button>`;
+			const gameControllerView = (previousEnabled, playEnabled, pauseEnabled, nextEnabled) => `
+<button id="previous" ${previousEnabled ? '' : 'disabled="disabled"'}>Previous</button>
+<button id="play" ${playEnabled ? '' : 'disabled="disabled"'}>Play</button>
+<button id="pause" ${pauseEnabled ? '' : 'disabled="disabled"'}>Pause</button>
+<button id="next" ${nextEnabled ? '' : 'disabled="disabled"'}>Next</button>`;
 
 			const renderGameController = state => {
-				const view = gameControllerView(!state.isStarted, state.isStarted);
+				const view = gameControllerView(state.canPrevious, state.canPlay, state.canPause, state.canNext);
 				const gc = document.getElementById('game-controller');
 
 				gc.innerHTML = view;
 
-				const start = gc.querySelector('#start');
-				start.addEventListener('click', loop.start);
+				const previous = gc.querySelector('#previous');
+				previous.addEventListener('click', loop.previous);
 
-				const stop = gc.querySelector('#stop');
-				stop.addEventListener('click', loop.stop);
+				const play = gc.querySelector('#play');
+				play.addEventListener('click', loop.play);
+
+				const pause = gc.querySelector('#pause');
+				pause.addEventListener('click', loop.pause);
+
+				const next = gc.querySelector('#next');
+				next.addEventListener('click', loop.next);
 			};
 
 			// Status
@@ -179,15 +258,17 @@
 						drawCell(ctx, cell.x, cell.y, cellSize);
 					});
 					return population;
-				})(ctx, state.board.population, state.board.width, state.board.height, 10);
+				})(ctx, state.population, state.width, state.height, 10);
 			};
 
 			// -- WORKAROUND --
 			// Not the best solution...
 			// But we don't want to render everything each times.
 			switch(originator) {
-				case 'startGame':
-				case 'stopGame':
+				case 'previousGeneration':
+				case 'playGame':
+				case 'pauseGame':
+				case 'nextGeneration':
 					renderGameController(state.gameController);
 					break;
 				case 'renderStatus':
