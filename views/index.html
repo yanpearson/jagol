@@ -26,8 +26,8 @@
 		const gosperGliderGun = patterns.gosperGliderGun(0, 0);
 		const seed = [].concat(oscillator).concat(glider).concat(gosperGliderGun);
 		const gameBoard = jagol.board(50, 50, seed);
-		const rulesTable = jagol.createRulesTable();
-		const doNextGen = jagol.play(rulesTable);
+		const hashTable = jagol.createHashTable();
+		const doNextGen = jagol.play(hashTable);
 		const historicityLevel = 30;
 
 		const loop = (() => {

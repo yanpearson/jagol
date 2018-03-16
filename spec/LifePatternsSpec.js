@@ -3,8 +3,8 @@
 const R = require('ramda');
 const game = require('../lib/jagol');
 const patterns = require('../lib/patterns');
-const rulesTable = game.createRulesTable();
-const contains = (cell, board) => R.contains(cell, board.population);
+const hashTable = game.createHashTable();
+const contains = (cell, board) => R.contains(cell, board.population.map(c => ({ x: c.x, y: c.y })));
 
 describe("block pattern", function() {
 
@@ -17,7 +17,7 @@ describe("block pattern", function() {
 		const board = game.board(null, null, seed);
 
 		// Generation 1
-		const gen1 = game.doNextGeneration(rulesTable, board);
+		const gen1 = game.doNextGeneration(hashTable, board);
 
 		// Expected:
 		// ✓ ✓ 0
@@ -31,7 +31,7 @@ describe("block pattern", function() {
 		expect(gen1.population.length).toEqual(4);
 
 		// Generation 2
-		const gen2 = game.doNextGeneration(rulesTable, gen1);
+		const gen2 = game.doNextGeneration(hashTable, gen1);
 
 		// Expected:
 		// ✓ ✓ 0
@@ -45,7 +45,7 @@ describe("block pattern", function() {
 		expect(gen2.population.length).toEqual(4);
 
 		// Generation 3
-		const gen3 = game.doNextGeneration(rulesTable, gen2);
+		const gen3 = game.doNextGeneration(hashTable, gen2);
 
 		// Expected:
 		// ✓ ✓ 0
@@ -59,7 +59,7 @@ describe("block pattern", function() {
 		expect(gen3.population.length).toEqual(4);
 
 		// Generation 100
-		const gen100 = game.doNthGeneration(100, rulesTable, board);
+		const gen100 = game.doNthGeneration(100, hashTable, board);
 
 		// Expected:
 		// ✓ ✓ 0
@@ -84,7 +84,7 @@ describe("blinker pattern", function() {
 		const seed = game.board(null, null, [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }]);
 
 		// Generation 1
-		const gen1 = game.doNextGeneration(rulesTable, seed);
+		const gen1 = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 0 0 0
@@ -97,7 +97,7 @@ describe("blinker pattern", function() {
 		expect(gen1.population.length).toEqual(3);
 
 		// Generation 2
-		const gen2 = game.doNextGeneration(rulesTable, gen1);
+		const gen2 = game.doNextGeneration(hashTable, gen1);
 
 		// Expected:
 		// 0 ✓ 0
@@ -110,7 +110,7 @@ describe("blinker pattern", function() {
 		expect(gen2.population.length).toEqual(3);
 
 		// Generation 100
-		const gen100Board = game.doNthGeneration(100, rulesTable, seed);
+		const gen100Board = game.doNthGeneration(100, hashTable, seed);
 
 		// Expected:
 		// 0 ✓ 0
@@ -123,7 +123,7 @@ describe("blinker pattern", function() {
 		expect(gen100Board.population.length).toEqual(3);
 
 		// Generation 101
-		const gen101 = game.doNthGeneration(101, rulesTable, seed);
+		const gen101 = game.doNthGeneration(101, hashTable, seed);
 
 		// Expected:
 		// 0 0 0
@@ -150,7 +150,7 @@ describe("glider pattern", function() {
 		const board = game.board(5, 5 , seed);
 
 		// Generation 4
-		const gen4 = game.doNthGeneration(4, rulesTable, board);
+		const gen4 = game.doNthGeneration(4, hashTable, board);
 
 		// Expected:
 		// 0 0 0 0

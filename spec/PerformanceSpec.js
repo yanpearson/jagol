@@ -2,8 +2,7 @@
 
 const R = require('ramda');
 const game = require('../lib/jagol');
-const rulesTable = game.createRulesTable();
-const contains = (cell, board) => R.contains(cell, board.population);
+const hashTable = game.createHashTable();
 
 describe("If we do 100 generations", function() {
 
@@ -38,7 +37,7 @@ describe("If we do 100 generations", function() {
 
 		const start = process.hrtime();
 
-		game.doNthGeneration(100, rulesTable, board);
+		game.doNthGeneration(100, hashTable, board);
 
 		const elapsedTime = process.hrtime(start);
 		const seconds = elapsedTime[0];

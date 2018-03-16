@@ -2,8 +2,8 @@
 
 const R = require('ramda');
 const game = require('../lib/jagol');
-const rulesTable = game.createRulesTable();
-const contains = (cell, board) => R.contains(cell, board.population);
+const hashTable = game.createHashTable();
+const contains = (cell, board) => R.contains(cell, board.population.map(c => ({ x: c.x, y: c.y })));
 
 describe("if a dead cell is surrounded by 3 alive neighbors", function() {
 
@@ -14,7 +14,7 @@ describe("if a dead cell is surrounded by 3 alive neighbors", function() {
 		// 0 1 0
 		const seed = game.board(null, null, [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }]);
 
-		const result = game.doNextGeneration(rulesTable, seed);
+		const result = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 0 0 0
@@ -35,7 +35,7 @@ describe("if an alive cell is surrounded by 2 alive neighbors", function() {
 		// 0 1 0
 		const seed = game.board(null, null, [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }]);
 
-		const result = game.doNextGeneration(rulesTable, seed);
+		const result = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 0 0 0
@@ -55,7 +55,7 @@ describe("if an alive cell is surrounded by 3 alive neighbors", function() {
 		// 0 1 0
 		const seed = game.board(null, null, [{ x: 0,  y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }]);
 
-		const result = game.doNextGeneration(rulesTable, seed);
+		const result = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 1 1 0
@@ -75,7 +75,7 @@ describe("if an alive cell is surrounded by less than 2 alive neighbors", functi
 		// 0 1 0
 		const seed = game.board(null, null, [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 1, y: 2 }]);
 
-		const result = game.doNextGeneration(rulesTable, seed);
+		const result = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 0 ✕ 0
@@ -96,7 +96,7 @@ describe("if an alive cell is surrounded by more than 3 alive neighbors", functi
 		// 1 0 1
 		const seed = game.board(null, null, [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 2 }, { x: 2, y: 2 }]);
 
-		const result = game.doNextGeneration(rulesTable, seed);
+		const result = game.doNextGeneration(hashTable, seed);
 
 		// Expected:
 		// 0 1 0
