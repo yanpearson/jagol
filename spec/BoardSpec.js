@@ -2,7 +2,7 @@
 
 const R = require('ramda');
 const game = require('../lib/jagol');
-const hashTable = game.createHashTable();
+const cellStateTable = game.createCellStateTable();
 const contains = (cell, board) => R.contains(cell, board.population);
 
 describe("If an alive cell is outside of board border limits", function() {
@@ -14,7 +14,7 @@ describe("If an alive cell is outside of board border limits", function() {
 		// 0 0 0 0
 		const seed = game.board(3, 3, [{ x: 2, y: 0 }, { x: 3, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 1 }]);
 
-		const result = game.doNextGeneration(hashTable, seed);
+		const result = game.doNextGeneration(cellStateTable, seed);
 
 		// Expected:
 		// 0 0 0

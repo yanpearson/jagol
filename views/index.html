@@ -20,14 +20,20 @@
 	<script src="patterns.js"></script>
 	<script src="immutable.js"></script>
 	<script>
+		const NEWBORN_CELL_COLOR = '#82b1ff';
+		const ALIVE_CELL_COLOR = '#333333';
+
 		// Game
 		const oscillator = patterns.oscillator(47, 47);
 		const glider = patterns.glider(0, 10);
 		const gosperGliderGun = patterns.gosperGliderGun(0, 0);
-		const seed = [].concat(oscillator).concat(glider).concat(gosperGliderGun);
+		const seed = ([].concat(oscillator)
+				.concat(glider)
+				.concat(gosperGliderGun))
+			.map(c => ({ ...c, state: jagol.CellState.newborn }));
 		const gameBoard = jagol.board(50, 50, seed);
-		const hashTable = jagol.createHashTable();
-		const doNextGen = jagol.play(hashTable);
+		const cellStateTable = jagol.createCellStateTable();
+		const doNextGen = jagol.play(cellStateTable);
 		const historicityLevel = 30;
 
 		const loop = (() => {
@@ -240,12 +246,13 @@
 					}
 				}
 
-				const drawCell = (ctx, x, y, cellSize) => {
+				const drawCell = (ctx, x, y, cellSize, fillStyle = ALIVE_CELL_COLOR) => {
 					const padding = 2;
 					const x1 = x * cellSize + padding;
 					const y1 = y * cellSize + padding;
 					const size = cellSize - (2 * padding);
 
+					ctx.fillStyle = fillStyle;
 					ctx.fillRect(x1, y1, size, size);
 				}
 
@@ -255,7 +262,8 @@
 				return ((ctx, population, width, height, cellSize) => {
 					drawBoard(ctx, width, height, cellSize);
 					population.forEach(cell => {
-						drawCell(ctx, cell.x, cell.y, cellSize);
+						const fillStyle = cell.state === jagol.CellState.newborn ? NEWBORN_CELL_COLOR : undefined;
+						drawCell(ctx, cell.x, cell.y, cellSize, fillStyle);
 					});
 					return population;
 				})(ctx, state.population, state.width, state.height, 10);
