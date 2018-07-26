@@ -11,13 +11,13 @@
 	"author": "Yan Pearson",
 	"license": "ISC",
 	"devDependencies": {
-		"jasmine": "^2.7.0",
-		"webpack": "^3.5.5"
+		"jasmine": "^2.99.0",
+		"webpack": "^3.12.0"
 	},
 	"dependencies": {
-		"connect": "^3.6.3",
+		"connect": "^3.6.6",
 		"immutable": "^3.8.2",
 		"ramda": "^0.24.1",
-		"serve-static": "^1.12.4"
+		"serve-static": "^1.13.2"
 	}
 }
